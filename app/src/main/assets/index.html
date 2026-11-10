@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>HackSim</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Splash -->
+    <section id="splash" class="screen active">
+      <div class="logo">HackSim</div>
+      <div class="tag">Learn to hack. Protect the world.</div>
+      <button id="enterBtn" class="btn">ENTER SIMULATION</button>
+      <div class="small">
+        <button id="settingsBtn" class="btn">Settings</button>
+        <button id="aboutBtn" class="btn">About</button>
+      </div>
+    </section>
+
+    <!-- Alias / Login -->
+    <section id="alias" class="screen">
+      <h2>Welcome, Agent</h2>
+      <label>Enter your Hacker Alias</label>
+      <input id="aliasInput" placeholder="Agent_" />
+      <button id="beginBtn" class="btn">BEGIN TRAINING</button>
+    </section>
+
+    <!-- Console Hub -->
+    <section id="console" class="screen">
+      <div class="header">
+        <div>HackSim Console v1.0</div>
+        <div id="profile">Rank: <span id="rank">Script Kiddie</span> • XP: <span id="xp">0</span></div>
+      </div>
+
+      <div class="menu">
+        <button class="menu-btn" data-action="missions">Access Missions</button>
+        <button class="menu-btn" data-action="tools">Open Tools</button>
+        <button class="menu-btn" data-action="stats">Stats & Progress</button>
+        <button class="menu-btn" data-action="exit">Exit Simulation</button>
+      </div>
+
+      <div class="system-log" id="systemLog">System: Ready. Type or tap to begin.</div>
+    </section>
+
+    <!-- Mission: Password Crack -->
+    <section id="mission" class="screen">
+      <h3 id="missionTitle">MISSION: Decode the password hash</h3>
+      <div class="mission-meta">Objective: Find the correct password before time runs out.</div>
+      <pre id="hashArea">hash.txt: <span id="hashVal">ab34f21d09</span></pre>
+
+      <div class="console-area">
+        <div id="consoleOutput">&gt; Type your command or press Run.</div>
+        <input id="cmdInput" placeholder="run decrypt --pattern=..." />
+      </div>
+
+      <div class="mission-controls">
+        <button id="runBtn" class="btn">Run</button>
+        <button id="hintBtn" class="btn outline">Hint</button>
+        <button id="abortBtn" class="btn danger">Abort</button>
+      </div>
+
+      <div id="missionResult" class="result"></div>
+    </section>
+
+    <!-- Tools -->
+    <section id="tools" class="screen">
+      <h3>Tools</h3>
+      <ul id="toolList">
+        <li>Network Scanner - Active</li>
+        <li>Decryptor - Locked</li>
+        <li>Firewall Analyzer - Locked</li>
+        <li>IP Tracker - Locked</li>
+      </ul>
+      <button class="btn" data-action="back">Back</button>
+    </section>
+
+    <!-- Stats -->
+    <section id="stats" class="screen">
+      <h3>Agent Profile</h3>
+      <div>Rank: <span id="sRank">Script Kiddie</span></div>
+      <div>XP: <span id="sXp">0</span></div>
+      <div>Missions Completed: <span id="sDone">0</span></div>
+      <div>Tools Unlocked: <span id="sTools">1</span></div>
+      <button class="btn" data-action="back">Back</button>
+    </section>
+
+    <!-- Game Over -->
+    <section id="failed" class="screen">
+      <h2>⚠️ ACCESS DENIED ⚠️</h2>
+      <p>Mission Failed. Security detected intrusion.</p>
+      <button id="retryBtn" class="btn">RETRY MISSION</button>
+      <button class="btn" data-action="back">BACK TO HUB</button>
+    </section>
+
+    <!-- Settings -->
+    <section id="settings" class="screen">
+      <h3>Settings</h3>
+      <div class="system-log">
+        <label for="textSize">Text Size</label>
+        <input id="textSize" type="range" min="90" max="120" step="5" />
+        <div id="textSizeVal">100%</div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
+          <input id="soundToggle" type="checkbox" />
+          Sound Effects
+        </label>
+      </div>
+      <button class="btn" data-action="back">Back</button>
+    </section>
+
+    <!-- About -->
+    <section id="about" class="screen">
+      <h3>About HackSim</h3>
+      <div class="system-log">
+        <p>Created in 2025 by <strong>Sicelo Tshuma</strong>.</p>
+        <p>Purpose: Missions like decoding passwords, tracing IPs, etc.</p>
+        <p>Teaches: networking and cybersecurity fundamentals.</p>
+        <p>Progression: Level-based challenges.</p>
+      </div>
+      <button class="btn" data-action="back">Back</button>
+    </section>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
+
