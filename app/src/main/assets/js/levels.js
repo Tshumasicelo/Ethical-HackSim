@@ -1016,16 +1016,16 @@
       stages: [
         {
           kind: 'text', title: 'Stage 1: the dropped note',
-          prompt: 'Recon turned up this encoded string. Decode it with the Encoder to reveal the next instruction.',
-          display: '{{b64:The next key is the ROT13 of: GUR INHYG VF BRANA}}',
-          tool: { id: 'encoder', text: '{{b64:The next key is the ROT13 of: GUR INHYG VF BRANA}}', mode: 'base64' },
-          contains: ['vault', 'oeana', 'the next key'], placeholder: 'the decoded line',
-          hints: ['It is Base64: decode it first.', 'It reveals a line of text that mentions ROT13.', 'Decoded, it reads: The next key is the ROT13 of: GUR INHYG VF BRANA'],
+          prompt: 'Recon turned up this encoded string. Decode it with the Encoder. Which cipher does the hidden note tell you to use next?',
+          display: '{{b64:The next key is the ROT13 of: GUR INHYG VF BCRA}}',
+          tool: { id: 'encoder', text: '{{b64:The next key is the ROT13 of: GUR INHYG VF BCRA}}', mode: 'base64' },
+          contains: ['rot13', 'rot 13', 'rot-13'], placeholder: 'name of the cipher',
+          hints: ['The trailing "=" and mixed letters and digits are the fingerprint of Base64.', 'Press nothing else: the Encoder shows the decoded text under "decode".', 'Decoded, it reads: The next key is the ROT13 of: GUR INHYG VF BCRA. The answer is ROT13.'],
         },
         {
           kind: 'text', title: 'Stage 2: undo the ROT13',
-          prompt: 'Apply ROT13 (a Caesar shift of 13) to "GUR INHYG VF BRANA" using the Cipher Wheel. What phrase appears?',
-          tool: { id: 'caesar', text: 'GUR INHYG VF BRANA' },
+          prompt: 'Apply ROT13 (a Caesar shift of 13) to "GUR INHYG VF BCRA" using the Cipher Wheel. What phrase appears?',
+          tool: { id: 'caesar', text: 'GUR INHYG VF BCRA' },
           contains: ['vault is'], placeholder: 'the phrase',
           hints: ['Set the Cipher Wheel shift to 13.', 'Three short words appear.', 'It reads THE VAULT IS OPEN.'],
         },

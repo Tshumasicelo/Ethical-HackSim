@@ -13,7 +13,7 @@
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
   font-family:'JBMono',ui-monospace,Menlo,Consolas,monospace;
   font-size:calc(15px * (var(--text-zoom)/100));line-height:1.5;
-  overscroll-behavior:none;-webkit-font-smoothing:antialiased}
+  overscroll-behavior:none;-webkit-font-smoothing:antialiased;font-variant-ligatures:none}
 body{background:
   radial-gradient(1200px 600px at 50% -10%,rgba(0,255,159,.06),transparent 60%),
   repeating-linear-gradient(0deg,rgba(0,255,159,.018) 0 2px,transparent 2px 4px),
@@ -340,10 +340,10 @@ h1{font-size:1.5em;letter-spacing:3px;margin:.2em 0}
 .modal-btns .btn{flex:1}
 
 /* toast */
-.toast{position:fixed;left:16px;right:16px;bottom:20px;z-index:60;display:flex;gap:12px;align-items:center;
+.toast{position:fixed;left:16px;right:16px;top:calc(14px + env(safe-area-inset-top,0px));z-index:60;display:flex;gap:12px;align-items:center;
   background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--accent);border-radius:14px;
   padding:13px 15px;box-shadow:0 10px 40px rgba(0,0,0,.5),0 0 24px var(--accent-glow);
-  transform:translateY(120px);opacity:0;transition:transform .4s cubic-bezier(.2,.8,.2,1),opacity .4s}
+  transform:translateY(-120px);opacity:0;pointer-events:none;transition:transform .4s cubic-bezier(.2,.8,.2,1),opacity .4s}
 .toast.in{transform:translateY(0);opacity:1}
 .toast .ach-ico{font-size:26px}
 

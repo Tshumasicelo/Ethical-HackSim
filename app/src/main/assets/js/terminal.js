@@ -148,6 +148,10 @@
       sudo: function () { out('{{alias}} is not in the sudoers file. This incident will be reported. (relax — it is a joke)', 'danger'); if (HS.grant) HS.grant('sudo'); },
       whoami: function () { out(HS.fill('{{alias}} — ethical hacker in training')); },
     };
+    COMMANDS.rabbit = COMMANDS.neo = COMMANDS.matrix = function () {
+      out('Wake up, {{alias}}...', 'accent'); out('The Matrix has you. Follow the white rabbit.', 'accent');
+      if (HS.grant) HS.grant('rabbit');
+    };
     COMMANDS.rm = COMMANDS.sudo;   // any destructive-looking attempt hits the same safe joke
 
     function hostAlive(ip) {

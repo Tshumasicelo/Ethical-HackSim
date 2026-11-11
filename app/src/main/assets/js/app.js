@@ -23,13 +23,18 @@
   function tierLevels(t) { return HS.LEVELS.filter((l) => l.tier === t); }
 
   /* ---------------- achievements ---------------- */
-  let toastQ = [];
-  function toast(a) {
+  const toastQ = [];
+  let toastBusy = false;
+  function toast(a) { toastQ.push(a); if (!toastBusy) nextToast(); }   // one at a time, never stacked
+  function nextToast() {
+    const a = toastQ.shift();
+    if (!a) { toastBusy = false; return; }
+    toastBusy = true;
     const node = h('div', { class: 'toast' }, h('span', { class: 'ach-ico' }, a.icon), h('div', {}, h('div', { class: 'accent' }, 'Achievement: ' + a.name), h('div', { class: 'dim small' }, a.desc)));
     document.body.appendChild(node);
     HS.sfx('unlock'); HS.buzz(40);
     requestAnimationFrame(() => node.classList.add('in'));
-    setTimeout(() => { node.classList.remove('in'); setTimeout(() => node.remove(), 400); }, 3200);
+    setTimeout(() => { node.classList.remove('in'); setTimeout(() => { node.remove(); nextToast(); }, 400); }, 2600);
   }
   HS.grant = function (id) {
     if (HS.state.achievements[id]) return;
@@ -102,7 +107,8 @@
       HS.state.alias ? showDashboard() : showAlias();
     }
     go(() => wrap, { instant: true });
-    setTimeout(() => { stopRain = HS.rain(canvas, { fade: 0.15, alpha: 0.5 }); }, 0);
+    if (!HS.motion()) { finish(); return; }   // animations off: straight to the game
+    setTimeout(() => { if (!done) stopRain = HS.rain(canvas, { fade: 0.15, alpha: 0.5 }); }, 0);
     HS.sfx('boot');
     const lines = [
       'HackSim BIOS v2.0 — POST OK',
@@ -113,7 +119,6 @@
       'reminder: every target in here is fake ... [ OK ]',
       'access granted.',
     ];
-    if (!HS.motion()) { finish(); return; }
     let y = 0;
     function step() {
       if (done) return;
