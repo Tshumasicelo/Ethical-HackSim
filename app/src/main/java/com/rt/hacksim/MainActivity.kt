@@ -1,75 +1,149 @@
 package com.rt.hacksim
 
 import android.annotation.SuppressLint
+import android.graphics.Color
 import android.os.Bundle
-import android.view.View
-import android.webkit.WebChromeClient
-import android.webkit.WebSettings
+import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
-import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
+import androidx.webkit.WebViewAssetLoader
 
+/**
+ * Hosts the HackSim web game (assets/index.html) in a locked-down WebView.
+ *
+ * The game is a simulator, so the shell is deliberately sealed: there is no INTERNET
+ * permission, network loads are blocked, and the WebView may only load the bundled assets.
+ */
 class MainActivity : ComponentActivity() {
+
+    private lateinit var webView: WebView
+    private var rendererGone = false
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
+        )
         super.onCreate(savedInstanceState)
 
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-        )
+        val background = getColor(R.color.hs_background)
+        val root = FrameLayout(this).apply { setBackgroundColor(background) }
 
-        setContentView(
-            androidx.compose.ui.platform.ComposeView(this).apply {
-                setContent {
-                    val webViewHolder = remember { mutableStateOf<WebView?>(null) }
+        // Serve bundled assets from a private https origin instead of file://,
+        // which keeps file access switched off and gives the page a stable origin.
+        val assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
 
-                    val view = LocalView.current
-                    DisposableEffect(Unit) {
-                        view.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        onDispose { }
-                    }
+        webView = WebView(this).apply {
+            setBackgroundColor(background)
+            overScrollMode = WebView.OVER_SCROLL_NEVER
+            isVerticalScrollBarEnabled = false
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                allowFileAccess = false
+                allowContentAccess = false
+                blockNetworkLoads = true
+                setSupportZoom(false)
+                builtInZoomControls = false
+                displayZoomControls = false
+                textZoom = 100
+                mediaPlaybackRequiresUserGesture = true
+            }
+            webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
 
-                    AndroidView(
-                        modifier = Modifier.fillMaxSize().background(Color(0xFF0B0F12)),
-                        factory = { context ->
-                            WebView(context).apply {
-                                webViewClient = WebViewClient()
-                                webChromeClient = WebChromeClient()
-                                settings.javaScriptEnabled = true
-                                settings.domStorageEnabled = true
-                                settings.allowFileAccess = true
-                                settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                                settings.setSupportZoom(false)
-                                settings.builtInZoomControls = false
-                                settings.displayZoomControls = false
-                                settings.textZoom = 100
-                                addJavascriptInterface(AndroidBridge(context), "AndroidBridge")
-                                loadUrl("file:///android_asset/index.html")
-                                webViewHolder.value = this
-                            }
-                        }
-                    )
+                // The game never navigates away from its single page. Refuse anything else.
+                override fun shouldOverrideUrlLoading(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): Boolean = request.url.host != WebViewAssetLoader.DEFAULT_DOMAIN
 
-                    BackHandler(enabled = (webViewHolder.value?.canGoBack() == true)) {
-                        webViewHolder.value?.goBack()
-                    }
+                // If Android kills the WebView renderer (low memory or a renderer crash),
+                // rebuild the screen instead of letting the whole app crash. Progress is
+                // already saved, so the player lands back on the dashboard.
+                override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                    rendererGone = true
+                    recreate()
+                    return true
                 }
             }
+            addJavascriptInterface(AndroidBridge(this@MainActivity), "AndroidBridge")
+        }
+
+        root.addView(
+            webView,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
+        setContentView(root)
+
+        // Edge-to-edge: keep the game clear of the status bar, navigation bar,
+        // display cutout and the on-screen keyboard.
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or
+                    WindowInsetsCompat.Type.displayCutout() or
+                    WindowInsetsCompat.Type.ime()
+            )
+            view.updatePadding(left = bars.left, top = bars.top, right = bars.right, bottom = bars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+
+        // System back: let the game handle in-app navigation first; leave the app from the dashboard.
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                webView.evaluateJavascript("(window.HackSim && window.HackSim.onBack()) === true") { handled ->
+                    if (handled != "true") moveTaskToBack(true)
+                }
+            }
+        })
+
+        if (savedInstanceState == null) {
+            webView.loadUrl(START_URL)
+        } else {
+            webView.restoreState(savedInstanceState)
+            if (webView.url == null) webView.loadUrl(START_URL)
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (!rendererGone) webView.saveState(outState)
+    }
+
+    override fun onPause() {
+        webView.onPause()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        webView.onResume()
+    }
+
+    override fun onDestroy() {
+        (webView.parent as? ViewGroup)?.removeView(webView)
+        webView.destroy()
+        super.onDestroy()
+    }
+
+    private companion object {
+        const val START_URL = "https://${WebViewAssetLoader.DEFAULT_DOMAIN}/assets/index.html"
     }
 }
