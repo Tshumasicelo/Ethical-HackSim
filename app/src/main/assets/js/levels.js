@@ -106,15 +106,15 @@
         'A test door in the lab is protected by a 4-digit PIN. The lock was built badly: after each attempt it tells you how close you were.',
         'That feedback is a leak. Use it to work out the code long before you run out of attempts.',
       ],
-      objective: 'Crack the 4-digit PIN in 10 attempts or fewer.',
+      objective: 'Crack the 4-digit PIN in 12 attempts or fewer.',
       stages: [
         {
-          kind: 'crack', title: 'Crack the lock', digits: 4, attempts: 10,
-          prompt: 'Every digit in the PIN is different. ● means a correct digit in the correct place. ○ means a correct digit in the wrong place.',
+          kind: 'crack', title: 'Crack the lock', digits: 4, attempts: 12,
+          prompt: 'Guess the 4-digit PIN. Each digit is used only once. After every try the lock leaks a clue: it says HOW MANY digits you got right, but never WHICH ones. Working that out is the puzzle.',
           hints: [
-            'Start with 0123, then 4567. The dots tell you which group of digits is in the code.',
-            'Once you know which digits are in the code, change one position at a time and watch how ● changes.',
-            'If a guess scores no dots at all, that is great news: you can cross out all four of those digits.',
+            'Try 0123 first, then 4567. Count the ● and ○ marks for each: that tells you how many of the PIN\'s digits are in each group. Whatever is left over must come from 8 and 9.',
+            'A try with no marks at all is great news: none of those 4 digits are in the PIN, and the notepad crosses them out for you. Once you have 4 marks in total, you know every digit and only need to rearrange them.',
+            'To place the digits, swap just two of them at a time. If ● goes up, the swap was right. If it goes down, swap them back.',
           ],
         },
         {

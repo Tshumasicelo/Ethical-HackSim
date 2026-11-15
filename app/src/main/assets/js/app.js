@@ -463,61 +463,164 @@
       return box;
     },
 
-    /* crack: PIN cracker with bulls/cows feedback */
+    /* crack: PIN cracker with "Mastermind" feedback.
+       ● = right digit, right place. ○ = right digit, wrong place. A digit tracker turns the
+       feedback into a visible deduction: digits proven absent are crossed out automatically,
+       and the player can mark digits by hand too. */
     crack: function (stage, ctx) {
       const digits = stage.digits || 4;
-      // generate a code with all-distinct digits (so the hint holds)
+      // A code with all-different digits, so every key appears at most once.
       const pool = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
       shuffleStable(pool);
       const code = pool.slice(0, digits).join('');
-      let left = stage.attempts || 10;
-      const box = h('div', {});
-      const feed = h('div', { class: 'crack-feed' });
-      const display = h('div', { class: 'crack-display mono' }, '•'.repeat(digits));
-      const counter = h('div', { class: 'dim small' }, left + ' attempts left');
-      const pad = h('div', { class: 'keypad' });
+      const maxTries = stage.attempts || 12;
+      let left = maxTries;
       let entry = '';
-      function setEntry(v) { entry = v; display.textContent = (entry + '•'.repeat(digits)).slice(0, digits).replace(/(.)/g, '$1 ').trim(); }
+      let tries = 0;
+      const mark = {};              // digit -> 'out' | 'in' (tracker state)
+      const box = h('div', {});
+
+      // --- entry slots ---
+      const slots = h('div', { class: 'pin-slots' });
+      const slotEls = [];
+      for (let i = 0; i < digits; i++) { const sl = h('div', { class: 'pin-slot' }); slotEls.push(sl); slots.appendChild(sl); }
+      const note = h('div', { class: 'pin-note small' });
+      const counter = h('div', { class: 'pin-counter small' });
+      function renderCounter() {
+        counter.textContent = left + (left === 1 ? ' attempt left' : ' attempts left');
+        counter.classList.toggle('low', left <= 3);
+      }
+      function setEntry(v) {
+        entry = v;
+        slotEls.forEach((sl, i) => {
+          sl.textContent = entry[i] || '';
+          sl.classList.toggle('filled', !!entry[i]);
+          sl.classList.toggle('cur', i === entry.length);
+        });
+        refreshKeys();
+      }
+      function flash(msg) {
+        note.textContent = msg; note.classList.add('show');
+        clearTimeout(flash.t); flash.t = setTimeout(() => note.classList.remove('show'), 1800);
+      }
+
+      // --- digit tracker: the player's notepad ---
+      const tracker = h('div', { class: 'tracker' });
+      const trackEls = {};
+      for (let d = 0; d <= 9; d++) {
+        const t = h('button', { class: 'trk', onclick: () => {
+          // tap cycles: unknown -> not in PIN -> in PIN -> unknown
+          mark[d] = mark[d] === 'out' ? 'in' : mark[d] === 'in' ? undefined : 'out';
+          HS.sfx('tap'); refreshTracker();
+        } }, String(d));
+        trackEls[d] = t; tracker.appendChild(t);
+      }
+      function refreshTracker() {
+        for (let d = 0; d <= 9; d++) {
+          trackEls[d].classList.toggle('out', mark[d] === 'out');
+          trackEls[d].classList.toggle('in', mark[d] === 'in');
+        }
+        refreshKeys();
+      }
+
+      // --- keypad ---
+      const pad = h('div', { class: 'keypad' });
+      const keyEls = {};
       ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', '↵'].forEach((k) => {
-        pad.appendChild(h('button', { class: 'key' + (k === '↵' ? ' go' : ''), onclick: () => {
-          HS.sfx('key');
-          if (k === '⌫') setEntry(entry.slice(0, -1));
-          else if (k === '↵') submit();
-          else if (entry.length < digits) setEntry(entry + k);
-        } }, k));
+        const b = h('button', { class: 'key' + (k === '↵' ? ' go' : k === '⌫' ? ' del' : ''), onclick: () => press(k) }, k);
+        keyEls[k] = b; pad.appendChild(b);
       });
+      function refreshKeys() {
+        for (let d = 0; d <= 9; d++) {
+          const k = keyEls[String(d)];
+          k.classList.toggle('used', entry.indexOf(String(d)) !== -1);
+          k.classList.toggle('out', mark[d] === 'out');
+        }
+        keyEls['↵'].classList.toggle('ready', entry.length === digits);
+      }
+      function press(k) {
+        if (k === '⌫') { HS.sfx('key'); setEntry(entry.slice(0, -1)); return; }
+        if (k === '↵') { submit(); return; }
+        if (entry.length >= digits) { HS.sfx('bad'); flash('All ' + digits + ' slots are full. Press ↵ to try it.'); return; }
+        if (entry.indexOf(k) !== -1) { HS.sfx('bad'); HS.buzz(15); flash('Each digit appears only once in this PIN, so ' + k + ' is already used.'); return; }
+        HS.sfx('key'); setEntry(entry + k);
+      }
+
+      // --- results ---
+      const latest = h('div', { class: 'pin-latest' });
+      const feed = h('div', { class: 'crack-feed' });
+      function explain(b, w) {
+        const none = digits - b - w;
+        if (b + w === 0) return 'None of these 4 digits are in the PIN. Cross all of them out!';
+        const parts = [];
+        if (b) parts.push(b + (b === 1 ? ' digit is' : ' digits are') + ' right AND in the right spot');
+        if (w) parts.push(w + (w === 1 ? ' digit is' : ' digits are') + ' in the PIN but in the wrong spot');
+        if (none) parts.push(none + (none === 1 ? ' digit is' : ' digits are') + ' not in the PIN at all');
+        return parts.join('. ') + '.' + (b + w === digits ? ' You have found all 4 digits: now just rearrange them.' : '');
+      }
+      function pegs(b, w) {
+        const p = h('span', { class: 'pegs' });
+        for (let i = 0; i < digits; i++) p.appendChild(h('span', { class: 'peg ' + (i < b ? 'b' : i < b + w ? 'w' : 'x') }, i < b ? '●' : i < b + w ? '○' : '·'));
+        return p;
+      }
+
       function submit() {
-        if (entry.length !== digits) { HS.sfx('bad'); return; }
-        let bulls = 0, cows = 0;
-        const cc = code.split(''), gg = entry.split('');
-        const usedC = [], usedG = [];
-        for (let i = 0; i < digits; i++) if (gg[i] === cc[i]) { bulls++; usedC[i] = usedG[i] = true; }
-        for (let i = 0; i < digits; i++) if (!usedG[i]) for (let j = 0; j < digits; j++) if (!usedC[j] && gg[i] === cc[j]) { cows++; usedC[j] = true; break; }
-        if (bulls === digits) {
-          HS.sfx('win');
-          feed.insertBefore(h('div', { class: 'crack-row win' }, h('span', { class: 'mono' }, entry), h('span', { class: 'accent' }, ' ✓ UNLOCKED')), feed.firstChild);
-          Array.from(pad.children).forEach((b) => (b.disabled = true));
-          setTimeout(ctx.advance, 900);
+        if (entry.length !== digits) { HS.sfx('bad'); flash('Enter ' + digits + ' digits first.'); return; }
+        const g = entry;
+        let b = 0, w = 0;
+        for (let i = 0; i < digits; i++) { if (g[i] === code[i]) b++; else if (code.indexOf(g[i]) !== -1) w++; }
+        tries++;
+        if (b === digits) {
+          HS.sfx('win'); HS.buzz(50);
+          HS.clear(latest);
+          latest.className = 'pin-latest win';
+          HS.add(latest, [h('div', { class: 'pin-latest-guess mono' }, g), h('div', {}, '✓ UNLOCKED in ' + tries + (tries === 1 ? ' try' : ' tries') + '!')]);
+          Array.from(pad.children).concat(Array.from(tracker.children)).forEach((x) => (x.disabled = true));
+          setTimeout(ctx.advance, 1100);
           return;
         }
-        left--;
-        counter.textContent = left + ' attempts left';
-        HS.sfx('tap');
-        feed.insertBefore(h('div', { class: 'crack-row' },
-          h('span', { class: 'mono' }, entry),
-          h('span', { class: 'pegs' }, '● '.repeat(bulls).trim() + ' ' + '○ '.repeat(cows).trim()),
-          h('span', { class: 'dim small' }, bulls + ' exact, ' + cows + ' misplaced')), feed.firstChild);
+        left--; renderCounter(); HS.sfx('tap');
+        // Certain deductions, applied to the tracker for the player.
+        if (b + w === 0) g.split('').forEach((d) => { mark[d] = 'out'; });
+        if (b + w === digits) {
+          for (let d = 0; d <= 9; d++) mark[d] = g.indexOf(String(d)) !== -1 ? 'in' : 'out';
+        }
+        refreshTracker();
+        // latest result, in plain words
+        HS.clear(latest);
+        latest.className = 'pin-latest';
+        HS.add(latest, [
+          h('div', { class: 'pin-latest-head' }, h('span', { class: 'dim small' }, 'TRY ' + tries), h('span', { class: 'pin-latest-guess mono' }, g), pegs(b, w)),
+          h('div', { class: 'pin-latest-text' }, explain(b, w)),
+        ]);
+        // history, newest at the top
+        if (feed.firstChild) feed.firstChild.classList.remove('newest');
+        feed.insertBefore(h('div', { class: 'crack-row newest' },
+          h('span', { class: 'dim small crack-n' }, '#' + tries),
+          h('span', { class: 'mono crack-g' }, g), pegs(b, w)), feed.firstChild);
         setEntry('');
         if (left <= 0) {
           ctx.wrong(); ctx.wrong();
-          feed.insertBefore(h('div', { class: 'crack-row no' }, 'Lockout! The code was ' + code + '. Resetting…'), feed.firstChild);
-          Array.from(pad.children).forEach((b) => (b.disabled = true));
-          setTimeout(() => runStageAgain(stage, ctx, box), 1600);
+          HS.clear(latest); latest.className = 'pin-latest lost';
+          HS.add(latest, h('div', {}, 'LOCKOUT. The PIN was ' + code + '. A new lock is loading… (hints can help!)'));
+          Array.from(pad.children).concat(Array.from(tracker.children)).forEach((x) => (x.disabled = true));
+          setTimeout(() => runStageAgain(stage, ctx, box), 2600);
         }
       }
-      setEntry('');
-      box.appendChild(display); box.appendChild(counter); box.appendChild(pad);
-      box.appendChild(h('div', { class: 'legend dim small' }, '● correct digit, correct place   ○ correct digit, wrong place'));
+
+      setEntry(''); renderCounter();
+      box.appendChild(h('div', { class: 'legend-card' },
+        h('div', {}, h('span', { class: 'peg b' }, '●'), ' right digit, right spot'),
+        h('div', {}, h('span', { class: 'peg w' }, '○'), ' right digit, wrong spot'),
+        h('div', {}, h('span', { class: 'peg x' }, '·'), ' not in the PIN'),
+        h('div', { class: 'legend-ex dim' }, 'Example: PIN 1234, you try 1350 → ', h('span', { class: 'peg b' }, '●'), h('span', { class: 'peg w' }, '○'), h('span', { class: 'peg x' }, '·'), h('span', { class: 'peg x' }, '·'), ' (1 is spot on, 3 is misplaced, 5 and 0 are not in it)')));
+      box.appendChild(slots);
+      box.appendChild(h('div', { class: 'pin-meta' }, counter, note));
+      box.appendChild(latest);
+      box.appendChild(pad);
+      box.appendChild(h('div', { class: 'tracker-head small' }, h('span', { class: 'accent' }, 'NOTEPAD'), h('span', { class: 'dim' }, '  tap a digit to mark it · crossed = not in PIN · green = in PIN')));
+      box.appendChild(tracker);
+      box.appendChild(h('div', { class: 'tracker-head small dim' }, 'YOUR TRIES (newest first)'));
       box.appendChild(feed);
       return box;
     },

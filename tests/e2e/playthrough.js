@@ -72,10 +72,11 @@ const TERM = {
         const g = cands[0];
         for (const d of g) await page.locator(S + '.key', { hasText: new RegExp('^' + d + '$') }).click();
         await page.locator(S + '.key.go').click(); await wait(60);
-        const row = await page.locator(S + '.crack-row').first().textContent();
-        if (/UNLOCKED/.test(row)) { console.log('  pin cracked in', n + 1); break; }
-        const m = row.match(/(\d) exact, (\d) misplaced/);
-        cands = cands.filter((c) => score(g, c) === m[1] + ',' + m[2]);
+        const latest = page.locator(S + '.pin-latest');
+        if (/UNLOCKED/.test(await latest.textContent())) { console.log('  pin cracked in', n + 1); break; }
+        const b = await latest.locator('.peg.b').count(), w = await latest.locator('.peg.w').count();
+        if (n === 0) await shot('L2-pin-feedback');
+        cands = cands.filter((c) => score(g, c) === b + ',' + w);
       }
     } else if (st.kind === 'policy') {
       for (const cb of await page.$$(S + '.toggle input')) if (!(await cb.isChecked())) await cb.check();
